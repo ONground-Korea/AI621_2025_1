@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Assignment 1 - Eulerian Video Magnification Report</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 900px;
+            margin: 40px auto;
+            padding: 0 20px;
+            line-height: 1.6;
+            color: #333;
+            background-color: #f9f9f9;
+        }
+
+        h1,
+        h2,
+        h3 {
+            color: #2c3e50;
+        }
+
+        section {
+            margin-bottom: 40px;
+            padding: 20px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        }
+
+        .header {
+            background-color: #ffffff;
+            border-left: 6px solid #2c3e50;
+            padding: 20px;
+            margin-bottom: 40px;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+            border-radius: 8px;
+        }
+
+        .info {
+            font-size: 1.1em;
+            margin-top: 5px;
+            color: #555;
+        }
+
+        video {
+            max-width: 100%;
+            border-radius: 8px;
+            margin-top: 10px;
+        }
+
+        .caption {
+            font-size: 0.9em;
+            color: #666;
+            margin-top: 5px;
+        }
+
+        code {
+            background: #eee;
+            padding: 2px 4px;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="header">
+        <h1>Assignment 1 Report: Eulerian Video Magnification</h1>
+        <div class="info">
+            <strong>Name:</strong> 한지상 (Han Ji Sang)<br>
+            <strong>Student Number:</strong> 20248337<br>
+            <strong>Report link: </strong> <a href="https://github.com/ONground-Korea/AI621_2025_1" target="_blank">link</a>
+        </div>
+    </div>
+
+    <section>
+        <h2>1. Overview</h2>
+        <p>
+            This report presents the results of Homework Assignment 1: Eulerian Video Magnification.
+            Please make sure to carefully read the instruction PDF before starting the assignment,
+            as it contains important details about the requirements and expectations.
+        </p>
+        <p>
+            The format of this report is flexible and may be modified as you see fit.
+            However, your submission should clearly include implementation details for each major component.
+            Assignment 1 comes with a template. For the following projects, please refer to this as a guide when creating your own.
+        </p>
+        <p>
+            For this report of the project, we request you to:
+        </p>
+        <ul>
+            <li>Include a brief description of the project, and explain how you constructed the Laplacian image pyramid.
+            </li>
+            <li>Show your result for amplifying blood flow on the <code>face</code> and <code>baby2</code> sequences, as
+                well as your results for the additional sequence that you capture and process. Your results should mimic
+                the results obtained by the authors on the <code>face</code> and <code>baby2</code> sequences (they
+                should amplify similar pulsation rates, though colorizing may be different).</li>
+            <li>Explain any difficulties and possible reasons for bad results.</li>
+            <li>Include any bells & whistles and explain what parameters you used.</li>
+        </ul>
+    </section>
+
+    <section>
+        <h2>2. Implementation Details</h2>
+
+        <h3>2.1 Color Transformation</h3>
+        <p>
+            For color transformation, each video frame is first normalized to double precision in the range [0, 1]. 
+            We then convert the frames from the RGB color space to YIQ using a matrix multiplication with the provided 
+            <code>RGB_to_YIQ</code> matrix. This conversion allows us to separate the luminance (Y) from the chrominance (I and Q) 
+            components, making it easier to amplify subtle intensity changes while preserving color information. The inverse 
+            transformation is applied later to convert the processed frames back to RGB.
+        </p>
+
+        <h3>2.2 Laplacian Pyramid</h3>
+        <p>
+            A Laplacian pyramid is built for each frame to decompose the image into multiple spatial frequency bands. 
+            Starting with a Gaussian pyramid (constructed using iterative downsampling with <code>cv2.pyrDown</code>), 
+            each level of the Laplacian pyramid is computed as the difference between a Gaussian level and the upsampled 
+            version of its subsequent level (using <code>cv2.pyrUp</code>). This pyramid decomposition is critical as it 
+            isolates details at various scales, which are later manipulated to amplify subtle motion or color variations.
+        </p>
+
+        <h3>2.3 Temporal Filtering</h3>
+        <p>
+            Temporal filtering is applied on the time series of each pixel within each level of the Laplacian pyramid. 
+            We convert the time series data into the frequency domain using Fast Fourier Transform (FFT) and then apply a 
+            bandpass filter to isolate the frequencies of interest (for example, 0.4 Hz to 4.0 Hz). The filtered signal 
+            is amplified by a specified factor to enhance subtle variations. To address the issue of high-frequency noise 
+            (which can cause artifacts such as noisy borders), a spatial low-pass filter (Gaussian blur) is applied to the 
+            amplified signal, resulting in a cleaner output.
+        </p>
+
+        <h3>2.4 Frequency Band Selection</h3>
+        <p>
+            The choice of frequency band is critical for capturing the desired motion or color changes. In our implementation, 
+            the frequency range is set based on the expected pulsation or slow motion in the videos. For instance, for the face 
+            video, the band is chosen between 0.4 Hz and 3.0 Hz to capture the subtle blood flow. Although an automatic method 
+            (e.g., histogram analysis of the frequency spectrum) could be used to select this band, we use fixed values in our code. 
+            This decision was made to simplify the processing and to match the settings reported in the original Eulerian Video 
+            Magnification paper.
+        </p>
+
+        <h3>2.5 Image Reconstruction</h3>
+        <p>
+            The final image reconstruction is achieved by collapsing the Laplacian pyramid. Starting from the coarsest level, 
+            each level is iteratively upsampled (using <code>cv2.pyrUp</code>) and added to the next finer level. This 
+            process effectively sums up the multi-scale details and reconstructs the final frame. Once the reconstruction is complete, 
+            the frames are converted back from YIQ to RGB, and pixel values are clipped to ensure they remain within the valid range [0, 1].
+        </p>
+    </section>
+
+    <section>
+        <h2>3. Results</h2>
+
+        <h3>Face Sequence</h3>
+        <video controls>
+            <source src="output/output_face.mp4" type="video/mp4">
+        </video>
+        <div class="caption">Amplified subtle pulse in the face video.</div>
+
+        <h3>Baby2 Sequence</h3>
+        <video controls>
+            <source src="./output/output_baby2.mp4" type="video/mp4">
+        </video>
+        <div class="caption">Amplified subtle motion in the baby2 video.</div>
+
+        <h3>Custom Video</h3>
+        <video controls>
+            <source src="output/output_custom.mp4" type="video/mp4">
+        </video>
+        <div class="caption">Motion amplification in the self-captured video.</div>
+
+        <h3>Custom Video2</h3>
+        <video controls>
+            <source src="output/output_custom2.mp4" type="video/mp4">
+        </video>
+        <div class="caption">Motion amplification in the self-captured video.</div>
+    </section>
+
+    <section>
+        <h2>4. Discussion</h2>
+        <p>
+            The project demonstrated how Eulerian Video Magnification can effectively amplify subtle changes in video sequences.
+            Some challenges included noise amplification, particularly from high-frequency components. To mitigate this, we integrated 
+            a spatial low-pass filter (using a Gaussian blur) after temporal filtering, which helped reduce artifacts along the borders. 
+            Parameter tuning was critical; for example, an amplification factor that is too high or an improperly selected frequency 
+            band could lead to exaggerated noise. Additionally, the quality of the Laplacian pyramid reconstruction depended on the number 
+            of pyramid levels used. Overall, the results were comparable to those obtained by the original authors, with clear amplification 
+            of blood flow in the face video and enhanced motion in the baby2 sequence.
+        </p>
+    </section>
+
+    <section>
+        <h2>5. Extras (Bonus)</h2>
+        <p>
+            I explored the versatility of Eulerian Video Magnification by testing it on two custom video sequences: an eyeball video extracted from a YouTube clip and a self-captured face video.
+        </p>
+        <p>
+            The first custom video is an eyeball video (available at 
+            <a href="https://youtu.be/GLfoo2kV3xo?t=99" target="_blank">this link</a>), where I focused on amplifying the subtle movements of the eyeball. These tiny, rapid motions are typically imperceptible, but by selecting a higher frequency range, they were successfully magnified.
+        </p>
+        <p>
+            The second custom video is a self-captured face video. In this case, I aimed to enhance subtle facial motions—revealing minute expressions and micro-movements.
+        </p>
+        <p>
+            For both custom videos, I used the following parameters:
+        </p>
+        <ul>
+            <li><code>levels = 4</code> (Number of pyramid levels)</li>
+            <li><code>amplification = 50</code> (Amplification factor)</li>
+            <li><code>freq_low = 2.0 Hz</code> (Lower frequency bound)</li>
+            <li><code>freq_high = 4.0 Hz</code> (Upper frequency bound)</li>
+            <li><code>low_pass_kernel_size = 11</code> (Stronger low-pass filter to reduce high-frequency noise)</li>
+        </ul>
+        <p>
+            These settings were specifically tuned to capture and enhance higher-frequency motion components. The stronger low-pass filter (with a kernel size of 11) was particularly effective in suppressing unwanted high-frequency noise, thereby reducing artifacts around image borders.
+        </p>
+        <p>
+            Overall, the experiments revealed that by carefully selecting the frequency band and amplification parameters, Eulerian Video Magnification can be extended to highlight various types of subtle motions—from the rapid yet slight movements of an eyeball to the nuanced micro-expressions of a face.
+        </p>
+    </section>
+    
+</body>
+
+</html>
